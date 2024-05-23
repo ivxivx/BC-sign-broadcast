@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demo page</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.4/css/bulma.min.css"
+    />
+    <script
+      src="https://unpkg.com/htmx.org@1.9.10"
+      crossorigin="anonymous"
+    ></script>
+    <style>
+      .select, .select select {
+        width: 100%;
+        padding-bottom: calc(.5em - 1px);
+        padding-left: calc(.75em - 1px);
+        padding-right: calc(.75em - 1px);
+        padding-top: calc(.5em - 1px);
+        border: 1px solid #dbdbdb;
+        border-radius: 4px;
+        font-size: 1rem;
+        justify-content: flex-start;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box" style="width:800px; margin:auto">
+      <div style="font-size:20px; font-weight:bold; text-align:center;">Create Transaction</div>
+      <form id="createPayoutForm" hx-post="/demo/payouts" hx-target="#payoutResultDiv">
+        <div class="columns">
+          <div class="column">
+            <div class="field">
+              <label class="label">Network</label>
+              <select class="select" id="networkSelect" name="network" hx-get="/demo/networks" hx-trigger="change, load" hx-target="#networkResultDiv" required>
+                <option value="TestEth">Ethereum Local Testnet</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="columns">
+          <div class="column">
+            <div class="field">
+              <label class="label">Currency</label>
+              <select class="select" id="currency" name="currency" required>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="columns">
+          <div class="column">
+            <div class="field">
+              <label class="label">Amount</label>
+              <input class="input" id="amount" name="amount" type="text" value="0.001" required>
+            </div>
+          </div>
+        </div>
+        <div class="columns">
+          <div class="column">
+            <div class="field">
+              <label class="label">From Address</label>
+              <select class="select" id="from" name="from">
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="columns">
+          <div class="column">
+            <div class="field">
+              <label class="label">To Address</label>
+              <input class="input" id="to" name="to" type="text" required>
+            </div>
+          </div>
+        </div>
+        <div class="columns">
+          <div class="column">
+            <div class="field">
+              <div class="box" id="errorDiv" style="display:none; color:#ff0000"></div>
+              <br/>
+              <div class="field">
+                <div class="control">
+                <button class="button is-primary" type="submit">Submit</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+      <div>
+        <div class="box" id="payoutLinkDiv" style="display:none">
+          <a id="txUrlA" target="_blank"></a>
+        </div>
+      </div>
+      <div class="box" id="payoutResultDiv" style="display:none">
+      </div>
+      <div class="box" id="networkResultDiv" style="display:none"></div>
+      <div class="box" style="display:none">
+        <input class="input" id="tid" name="tid">
+      </div>
+      <script>
+        document.getElementById('from').addEventListener('change', function () {
+          const currencyElem = document.getElementById("currency");
+          const toElem = document.getElementById("to");
+
+          if (currencyElem.value === "TEST_ETH") {
+            if (this.value === "0x04d4f8BDfC79f9fb1B92c9cd702040E6A4BD14B7") {
+              toElem.value = "0x7947bF7E54d5692C0B615512A228e3c1580D7420";
+            } else if (this.value === "0x7947bF7E54d5692C0B615512A228e3c1580D7420") {
+              toElem.value = "0x04d4f8BDfC79f9fb1B92c9cd702040E6A4BD14B7";
+            }
+          }
+        });
+
+        document.addEventListener("htmx:beforeRequest", function (event) {
+            const errorDiv = document.getElementById("errorDiv");
+            errorDiv.style.display = "none";
+            errorDiv.innerHTML = "";
+
+            const payoutLinkDiv = document.getElementById("payoutLinkDiv");
+            payoutLinkDiv.style.display = "none";
+        }),
+
+        document.addEventListener("htmx:afterRequest", function (event) {
+          console.log(event);
+
+          const evtTarget = event.detail.elt.id;
+          const resStatus = event.detail.xhr.status;
+          const resBody = event.detail.xhr.response;
+          console.log("evtTarget", evtTarget);
+
+          if (evtTarget === "networkSelect" || evtTarget === "") {
+            if (resStatus >= 200 && resStatus < 300) {
+              const response = JSON.parse(resBody);
+
+              const errorDiv = document.getElementById("errorDiv");
+              errorDiv.style.display = "none";
+              errorDiv.innerHTML = "";
+
+              const toElem = document.getElementById("to");
+              toElem.value = "";
+
+              const fromElem = document.getElementById("from");
+              fromElem.innerHTML = "";
+
+              response.addresses.forEach((address) => {
+                const option = document.createElement("option");
+                option.text = address.address;
+                option.value = address.address;
+                fromElem.appendChild(option);
+              });
+
+              const currencyElem = document.getElementById("currency");
+              currencyElem.innerHTML = "";
+
+              response.currencies.forEach((currency) => {
+                const option = document.createElement("option");
+                option.text = currency.label;
+                option.value = currency.id;
+                currencyElem.appendChild(option);
+
+                if (currency.id === "TEST_ETH") {
+                  toElem.value = "0x7947bF7E54d5692C0B615512A228e3c1580D7420";
+                }
+              });
+            } else {
+              const errorDiv = document.getElementById("errorDiv");
+              errorDiv.style.display = "block";
+              errorDiv.innerHTML = resBody;
+            }
+          } else if (evtTarget === "createPayoutForm") {
+            if (resStatus >= 200 && resStatus < 300) {
+              const response = JSON.parse(resBody);
+              console.log("response", response);
+
+              const errorDiv = document.getElementById("errorDiv");
+              errorDiv.style.display = "none";
+              errorDiv.innerHTML = "";
+
+              const payoutLinkDiv = document.getElementById("payoutLinkDiv");
+              payoutLinkDiv.style.display = "block";
+
+              const txUrlA = document.getElementById("txUrlA");
+              txUrlA.href = response.url;
+              txUrlA.innerHTML = response.id;
+            } else {
+              const errorDiv = document.getElementById("errorDiv");
+              errorDiv.style.display = "block";
+              errorDiv.innerHTML = resBody;
+            }
+          }
+        })
+      </script>
+    </div>
+</body>
+</html>

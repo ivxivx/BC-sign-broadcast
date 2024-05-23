@@ -1,0 +1,34 @@
+{
+  "addresses": [
+    {
+      "address": "0x04d4f8BDfC79f9fb1B92c9cd702040E6A4BD14B7",
+      "network_code": "TestEth",
+      "wallet_id": "018ee4c9-5161-7fa2-b280-20573311aab4"
+    },
+    {
+      "address": "0x7947bF7E54d5692C0B615512A228e3c1580D7420",
+      "network_code": "TestEth",
+      "wallet_id": "018ee4c9-5161-7fa2-b280-20573311aab5"
+    }
+  ],
+  "wallets": [
+    {
+      "id": "018ee4c9-5161-7fa2-b280-20573311aab4",
+      "provider_id": "Local",
+      "private_key": "0xf12edb5734c2621fab785099c4826c260f2e9b6f60450e0f8b0e7501687663e6"
+    },
+    {
+      "id": "018ee4c9-5161-7fa2-b280-20573311aab5",
+      "provider_id": "Local",
+      "private_key": "0x4b10c17dfd0b5bafa9446e7276bd07e85ddfeb4d3e7be98a72f3d5272a9acb9c"
+    }
+  ],
+  "providers": [
+    {
+      "id": "Local",
+      "params": {
+        "evm_local_testnet_url": "http://localhost:8545"
+      }
+    }
+  ]
+}
