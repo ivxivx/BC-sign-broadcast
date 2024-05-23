@@ -1,11 +1,7 @@
-Table of Contents
-- [Overview](#overview)
-- [How to Use](#how-to-use)
-
 # Overview
 The project demostrates how to create a transaction on blockchains.
 
-Supported blockchains included:
+Supported blockchains include:
 - Ethereum local testnet (Ganache)
 
 Notes:
