@@ -1,6 +1,11 @@
 # Overview
 The project demostrates how to create a transaction on blockchains.
 
+Normally there are 3 steps invovled:
+1. Build transaction payload (i.e. retrieve gas price, nonce for ethereum)
+2. Sign the payload
+3. Broadcast signed payload to blockchain
+
 Supported blockchains include:
 - Ethereum local testnet (Ganache)
 
