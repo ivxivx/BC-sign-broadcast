@@ -69,6 +69,8 @@ type Transaction struct {
 	ID                    string `json:"id"`
 	URL                   string `json:"url"`
 	TransferorDescription string `json:"creator_description"`
+	Currency              string `json:"currency"`
+	ProviderID            string `json:"provider_id"`
 }
 
 type DemoConfig struct {
@@ -81,6 +83,11 @@ type DemoContext struct {
 	txmgr       *transaction.Manager
 	walletRepo  domain.WalletRepo
 	addressRepo domain.AddressRepo
+}
+
+type TransactionUpdatedMessage struct {
+	Status               string `json:"status"`
+	NetworkTransactionID string `json:"network_transaction_id,omitempty"`
 }
 
 type ProviderNotFoundError struct {
@@ -117,11 +124,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	chSse := make(chan json.RawMessage)
+
 	http.Handle("/", http.FileServer(http.FS(contentFS)))
 
 	http.HandleFunc("GET /demo/networks", getNetwork(config))
-	http.HandleFunc("POST /demo/payouts", createPayout(config, demoContext))
+	http.HandleFunc("POST /demo/payouts", createPayout(config, demoContext, chSse))
 	http.HandleFunc("GET /demo/transactions", getTransaction)
+	http.HandleFunc("/demo/sse", handleEvents(chSse))
 
 	const readerHeaderTimeout = 5 * time.Second
 
@@ -267,9 +277,48 @@ func getTransaction(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func handleEvents(chSse chan json.RawMessage) http.HandlerFunc {
+	return func(resp http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+
+		resp.Header().Set("Access-Control-Allow-Origin", "*")
+		resp.Header().Set("Content-Type", "text/event-stream")
+		resp.Header().Set("Cache-Control", "no-cache")
+		resp.Header().Set("Connection", "keep-alive")
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, rok := <-chSse:
+				if !rok {
+					log.Println("channel closed")
+
+					return
+				}
+
+				_, errC := fmt.Fprintf(resp, "data: %s\n\n", msg)
+				if errC != nil {
+					slog.Log(ctx, slog.LevelError, "error writing response:", "err", errC)
+					http.Error(resp, "error writing response", http.StatusInternalServerError)
+
+					continue
+				}
+
+				if flusher, ok := resp.(http.Flusher); ok {
+					flusher.Flush()
+				}
+
+				log.Printf("sent sse: %s", msg)
+			}
+		}
+	}
+}
+
 func createPayout(
 	_ *DemoConfig,
 	demoContext *DemoContext,
+	chSse chan json.RawMessage,
 ) http.HandlerFunc {
 	return func(resp http.ResponseWriter, req *http.Request) {
 		ctx := context.Background()
@@ -328,6 +377,8 @@ func createPayout(
 			ID:                    payload.ID,
 			URL:                   txExplorerURL,
 			TransferorDescription: payload.ProviderID,
+			Currency:              currencyCode,
+			ProviderID:            payload.ProviderID,
 		}
 
 		res, err := json.MarshalIndent(txRes, "", "  ")
@@ -347,6 +398,23 @@ func createPayout(
 
 			return
 		}
+
+		go func() {
+			// simulate transaction confirmation after 5 seconds
+			time.Sleep(5 * time.Second)
+
+			message := TransactionUpdatedMessage{
+				Status:               "confirmed",
+				NetworkTransactionID: payload.ID,
+			}
+
+			data, err := json.Marshal(message)
+			if err != nil {
+				slog.Log(ctx, slog.LevelError, "failed to marshall message:", err)
+			} else {
+				chSse <- data
+			}
+		}()
 	}
 }
 

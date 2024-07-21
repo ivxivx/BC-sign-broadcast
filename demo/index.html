@@ -25,10 +25,32 @@
         justify-content: flex-start;
         line-height: 1.5;
       }
+
+      #transactionResultTable thead tr th:first-child ~ th {
+        padding-left: 10px;
+      }
+
+      #transactionResultTable tbody tr td:first-child ~ td {
+        padding-left: 10px;
+      }
+
+      #transactionResultTable tbody tr:nth-child(odd) {
+        background-color: #fcfcfc;
+      }
+
+      #transactionResultTable th {
+        line-height: 200%;
+        vertical-align: middle;
+      }
+
+      #transactionResultTable td {
+        line-height: 200%;
+        vertical-align: middle;
+      }
     </style>
   </head>
   <body>
-    <div class="box" style="width:800px; margin:auto">
+    <div class="box" style="width:1000px; margin:auto">
       <div style="font-size:20px; font-weight:bold; text-align:center;">Create Transaction</div>
       <form id="createPayoutForm" hx-post="/demo/payouts" hx-target="#payoutResultDiv">
         <div class="columns">
@@ -90,8 +112,19 @@
         </div>
       </form>
       <div>
-        <div class="box" id="payoutLinkDiv" style="display:none">
-          <a id="txUrlA" target="_blank"></a>
+        <div class="box" id="payoutLinkDiv" style="display:none"> 
+          <table id="transactionResultTable">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Transaction ID</th>
+                <th>Network Currency</th>
+                <th>Provider</th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
         </div>
       </div>
       <div class="box" id="payoutResultDiv" style="display:none">
@@ -101,6 +134,39 @@
         <input class="input" id="tid" name="tid">
       </div>
       <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const evtSrc = new EventSource("/demo/sse");
+            console.log("sse subscribed");
+  
+            evtSrc.onerror = (err) => {
+              console.error("sse failed:", err);
+            };
+  
+            evtSrc.onmessage = (event) => {
+              console.log("sse received", event);
+              const payoutEvent = JSON.parse(event.data);
+  
+              const networkTransactionId = payoutEvent.network_transaction_id;
+              
+              switch (payoutEvent.status) {
+                case "confirmed": 
+                case "failed": {
+                  const transactionResultTable = document.getElementById("transactionResultTable");
+                  for (var i = 0, row; row = transactionResultTable.rows[i]; i++) {
+                    //iterate through rows
+                    //rows would be accessed using the "row" variable assigned in the for loop
+                    if (row.cells[1].innerText === networkTransactionId) {
+                      row.cells[0].children[0].style.backgroundColor = payoutEvent.status === 'failed' ? "#dD3A15" : "#119516";
+                      row.cells[0].title = payoutEvent.status;
+                        break;
+                    }
+                  }
+                }
+  
+              }
+            };
+          }),
+
         document.getElementById('from').addEventListener('change', function () {
           const currencyElem = document.getElementById("currency");
           const toElem = document.getElementById("to");
@@ -182,9 +248,32 @@
               const payoutLinkDiv = document.getElementById("payoutLinkDiv");
               payoutLinkDiv.style.display = "block";
 
-              const txUrlA = document.getElementById("txUrlA");
-              txUrlA.href = response.url;
-              txUrlA.innerHTML = response.id;
+              const createPayoutResultTableBody = document.getElementById("transactionResultTable").getElementsByTagName('tbody')[0];
+
+              const newRow = createPayoutResultTableBody.insertRow(0);
+              const newCellStatus = newRow.insertCell();
+              newCellStatus.title = "pending";
+
+              const newCellTxId = newRow.insertCell();
+
+              const statusDiv = document.createElement('div');
+              statusDiv.style.width = "20px";
+              statusDiv.style.height = "20px";
+              statusDiv.style.backgroundColor = "#c0c0c0";
+              statusDiv.style.borderRadius = "1000px";
+              newCellStatus.appendChild(statusDiv);
+
+              const a = document.createElement('a');
+              a.href = response.url;
+              a.target = "_blank";
+              a.innerHTML = response.id;
+              newCellTxId.appendChild(a);
+
+              const newCellCurrency = newRow.insertCell();
+              newCellCurrency.innerHTML = response.currency;
+
+              const newCellPartner = newRow.insertCell();
+              newCellPartner.innerHTML = response.provider_id;
             } else {
               const errorDiv = document.getElementById("errorDiv");
               errorDiv.style.display = "block";
